@@ -1,0 +1,75 @@
+name: Deploy Azure Function
+
+on:
+  push:
+    branches:
+      - develop # Deploy to test on push to develop
+
+  workflow_dispatch:
+    # Allow manual trigger (e.g., for production)
+
+jobs:
+  deploy-test:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    name: Deploy to Test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # Service Principal JSON
+
+      - name: Deploy to Azure Function (Test)
+        uses: Azure/functions-action@v3
+        with:
+          app-name: your-function-app-test-name
+          package: .
+          publish-profile: ${{ secrets.AZURE_TEST_PUBLISH_PROFILE }}
+
+  deploy-prod:
+    needs: deploy-test
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    environment: production # Use GitHub Environments for protection
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Wait for Approval
+        uses: trstringer/manual-approval@v1
+        with:
+          environment: Production
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Function (Production)
+        uses: Azure/functions-action@v3
+        with:
+          app-name: your-function-app-prod-name
+          package: .
+          publish-profile: ${{ secrets.AZURE_PROD_PUBLISH_PROFILE }}
