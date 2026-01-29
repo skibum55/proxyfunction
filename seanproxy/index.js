@@ -3,11 +3,15 @@ const axios = require('axios');
 const url = require('url');
 
 module.exports = async function (context, req) {
-  const targetA = 'https://devcontainera.azure.com';
+  // const targetA = 'https://devcontainera.azure.com';
+  const targetA = 'https://n8n-app-test-east2.calmwater-92abf6cd.eastus2.azurecontainerapps.io/';
   const targetB = 'https://devcontainerb.azure.com';
 
   // Parse original URL to forward path + query
-  const pathname = url.parse(req.url).pathname;
+  const path = req.params.path || '';
+  const query = req.url.split('?')[1] || '';
+  const pathname = path + (query ? `?${query}` : '');
+  console.log('Proxying request for path:', pathname);
   const relativePath = pathname.replace('/api/proxy', ''); // Remove proxy prefix
 
   let targetUrl;
@@ -16,6 +20,7 @@ module.exports = async function (context, req) {
   } else {
     targetUrl = `${targetA}${relativePath}`; // default to A
   }
+  console.log('TargetUrl:', targetUrl);
 
   try {
     const response = await axios({
@@ -24,9 +29,9 @@ module.exports = async function (context, req) {
       data: req.body,
       headers: {
         ...req.headers,
-        host: url.parse(targetUrl).host, // rewrite Host header
+        host: url.host, // rewrite Host header
         'x-forwarded-for': req.headers['x-forwarded-for'] || context.req.connection?.remoteAddress,
-        'x-forwarded-host': url.parse(targetUrl).host,
+        'x-forwarded-host': url.host,
       },
       responseType: 'stream', // preserves binary data (images, etc.)
       validateStatus: null, // don't throw on 4xx/5xx
